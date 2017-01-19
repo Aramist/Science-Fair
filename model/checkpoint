@@ -1,0 +1,2 @@
+model_checkpoint_path: "C:\\Users\\Aramis\\Desktop\\Science-Fair\\model\\mnist-model"
+all_model_checkpoint_paths: "C:\\Users\\Aramis\\Desktop\\Science-Fair\\model\\mnist-model"
