@@ -28,7 +28,7 @@ def test_image(img):
         graph_output = graph.get_tensor_by_name('add_4:0')
         graph_keep_prob = graph.get_tensor_by_name('Placeholder_1:0')
         graph_y_conv = graph.get_tensor_by_name('add_3:0')
-        return sess.run(graph_output, feed_dict={graph_input: img_resized, graph_keep_prob: 1.0})[0]
+        return sess.run(graph_output, feed_dict={graph_input: img_resized, graph_keep_prob: 1.0})
 
 def self_test():
     with tf.Session() as sess:

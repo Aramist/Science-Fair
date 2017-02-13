@@ -38,64 +38,61 @@ def find_digits(image, display=False):
         #The image is in BGR format
         img = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     
-    #Apply a blur
-    #img = cv2.GaussianBlur(img, ((sh_0 // 175) | 1, (sh_1 // 175) | 1), sigmaX=4)
-    img = cv2.medianBlur(img, ((sh_0 * sh_1)//1306667) | 1)
+    #Apply a blur to remove high frequency noise
+    img = cv2.GaussianBlur(img, (5,5), 1)
 
     #Apply an adaptive threshold with the inverse binary rule
     # max(...,...) | 1 is to ensure the block size is odd, this assumes the number is positive
-    thresh = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, max((sh_0 * sh_1) // 34560, 3) | 1, (sh_0 * sh_1) //518400)
+    #thresh = cv2.adaptiveThreshold(img, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV, max((sh_0 * sh_1) // 34560, 3) | 1, (sh_0 * sh_1) //518400)
 
-    #Find all contours in the image, this modifies the threshold image so a copy will be used
-    _, contours, _ = cv2.findContours(np.copy(thresh), cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+    #Create an image of edges through the use of the Canny Edge Detection
+    edges = cv2.Canny(img, 100, 150, L2gradient=True)
+
+    #Find all contours in the image
+    #Only external contours (RETR_EXTERNAL) will count, this should simplify filtering of contours
+    edges, contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    
+    #Use K-Means clustering to group the areas into two groups, smaller areas which are most likely noise and larger areas which are most likely characters
     areas = [cv2.contourArea(c)  for c in contours]
     k_means = kmeans.kmeans_1d(areas, 2)
     stdev_areas = statistics.stdev(areas)
 
-    '''
-    ##DEBUG START##
-    print(k_means)
-    ##DEBUG END##
-    '''
-
     #Create a list of the contours whos areas are within one standard deviation of the mean
     #letter_contours = [c for c in contours if math.fabs(cv2.contourArea(c) - max(k_means.keys())) < 0.5 * stdev_areas]
     letter_contours = [c for c in contours if cv2.contourArea(c) > min(k_means.keys()) + stdev_areas * 0.25]
-
-    print(len(letter_contours))
 
     #Create a list to hold the images that will be returned
     letter_images = list()
 
     #Loop through letter_contours and generate a blank image containing only the contour
     for letter in letter_contours:
-        blank = np.zeros_like(img)
-        cv2.drawContours(blank, [letter], 0, 255, 20)
+        blank = np.copy(img)
+        cv2.drawContours(blank, [letter], 0, 255, 15)
         x, y, w, h = cv2.boundingRect(letter)
         box_size = max(w,h)
 
+        #Where the center of mass will be
+        target_x = 14 * box_size/28
+        target_y = 14 * box_size/28
+
+        #Find the center of mass, this is done by dividing the linear moments by the constant moment
+        M = cv2.moments(letter)
+        cm_x = round(M['m10']/M['m00'])
+        cm_y = round(M['m01']/M['m00'])
+
+        blank = __translate_image__(blank, target_x - cm_x, target_y - cm_y)
+
         #Important note, numpy uses rows as x and columns as y, opposite of opencv
-        letter_box = blank[y : min(sh_0, y + box_size), x : min(sh_1, x + box_size)].copy()
-        
-        '''
-        ##DEBUG START##
-        print(letter_box.shape)
-        print('sh0-{} sh1-{}'.format(sh_0,sh_1))
-        print('X{} Y{} W{} H{}'.format(x,y,w,h))
-        ##DEBUG END##
-        '''
+        letter_box = blank[0:box_size, 0:box_size].copy()
+
+        #Free the memory... I guess?
+        del blank
 
         #Resize the image to be 28x28 pixels if it isn't
         if box_size != 28:
             letter_box = cv2.resize(letter_box, (28,28), interpolation=cv2.INTER_CUBIC)
         
-        #Moments of the contour
-        M = cv2.moments(cv2.findContours(letter_box, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)[1][0])
-
-        #Now proceed to translate the contour so that the center of mass is in the center of the image (14,14)
-        cm_x = round(M['m10']/M['m00'])
-        image_translated = __translate_image__(letter_box, 14 - cm_x, 0)
-        letter_images.append(image_translated)
+        letter_images.append(letter_box)
 
     #Display the images with matplotlib if display is True
     if display:
