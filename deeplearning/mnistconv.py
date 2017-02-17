@@ -42,21 +42,21 @@ with tf.name_scope('conv_layer_2'):
 
 with tf.name_scope('fully_connected_1'):
     W = tf.Variable(tf.truncated_normal([7 * 7 * 64, 1024], stddev=0.1), name='weights')
-    b = tf.Variable(tf.constant(0.1, [1024]), name='biases')
+    b = tf.Variable(tf.constant(0.1, shape=[1024]), name='biases')
 
     h_pool_fc = tf.reshape(h_pool, [-1, 7 * 7 * 64])
     h_fc = tf.nn.relu(tf.matmul(h_pool_fc, W) + b)
 
 with tf.name_scope('fully_connected_2'):
     keep_prob = tf.placeholder(tf.float32)
-    h_drop = tf.nn.dropout(h_fc1, keep_prob)
+    h_drop = tf.nn.dropout(h_fc, keep_prob)
 
     W = tf.Variable(tf.truncated_normal([1024,10], stddev=0.1), name='weights')
     b = tf.Variable(tf.constant(0.1, shape=[10]), name='biases')
 
     y_conv = tf.matmul(h_drop, W) + b
 
-cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y_))
+cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=y_conv, labels=y_))
 
 train = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 
@@ -72,12 +72,9 @@ saver = tf.train.Saver()
 
 with tf.Session() as sess:
     sess.run(init)
-    for i in range(20000):
-        start_time = time() * 1000
-        batch = mnist.train.next_batch(50)
-        if i % 100 == 0:
-            training_accuracy = accuracy.eval(feed_dict={x:batch[0], y_: batch[1], keep_prob: 1.0})
-            print('Step {}\tAccuracy {}\tTime {}ms'.format(i, training_accuracy, time()*1000 - start_time))
-        train.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
-    print('Test Accuracy: {}'.format(accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})))
-    print('Model saved to {}'.format(saver.save(sess, os.path.abspath(os.path.join(os.getcwd(), '../model/mnist-model')))))
+    batch = mnist.train.next_batch(50)
+    aa,bb = sess.run((y_conv, y_), feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+    print(aa)
+    print(bb)
+    #print('Test Accuracy: {}'.format(accuracy.eval(feed_dict={x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0})))
+    #print('Model saved to {}'.format(saver.save(sess, os.path.abspath(os.path.join(os.getcwd(), '../model/mnist-model')))))

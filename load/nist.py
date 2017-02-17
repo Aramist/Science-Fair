@@ -11,6 +11,9 @@ TRAIN_PATH = path.join(DATA_PATH, 'train/lower')
 TEST_PATH = path.join(DATA_PATH, 'test/lower')
 
 
+def int_to_one_hot(label):
+    return [1 if i == label else 0 for i in range(26)]
+
 class LoadData(object):
     '''A class made for importing batches of handwritten letter data.'''
 
@@ -26,11 +29,11 @@ class LoadData(object):
         labels = list()
 
         for a in self.training_images[:min(size, len(self.training_images) - 1)]:
-            ret_arr.append(np.resize(np.divide(cv2.imread(a[0], 0), 2.0), (1, 128, 128, 3)))
-            labels.append(a[1])
+            ret_arr.append(np.resize(np.divide(cv2.imread(a[0], 0), 255.0), (1, 128, 128, 1)))
+            labels.append(int_to_one_hot(a[1]))
 
         self.training_images = self.training_images[min(size, len(self.training_images) - 1):]
-        return np.concatenate(ret_arr, axis=0), labels
-        
+        return np.concatenate(ret_arr, axis=0), np.array(labels, dtype=np.uint8)
+
     def has_training_data(self):
         return not len(self.training_images) == 0
